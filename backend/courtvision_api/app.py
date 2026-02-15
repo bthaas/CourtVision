@@ -56,6 +56,7 @@ def create_app() -> tuple[Flask, SocketIO, SessionStore]:
             misses=analytics.misses,
             fg_pct=analytics.fg_pct,
             average_inference_latency_ms=analytics.average_inference_latency_ms,
+            average_form_score=analytics.average_form_score,
             current_streak=analytics.current_streak,
             best_streak=analytics.best_streak,
             zone_breakdown=zone_breakdown,
@@ -94,6 +95,9 @@ def create_app() -> tuple[Flask, SocketIO, SessionStore]:
             confidence=payload.confidence,
             inference_latency_ms=payload.inference_latency_ms,
             release_angle_deg=payload.release_angle_deg,
+            elbow_angle_deg=payload.elbow_angle_deg,
+            knee_angle_deg=payload.knee_angle_deg,
+            torso_tilt_deg=payload.torso_tilt_deg,
         )
         session.events.append(event)
 
@@ -105,6 +109,7 @@ def create_app() -> tuple[Flask, SocketIO, SessionStore]:
             "misses": analytics.misses,
             "fg_pct": analytics.fg_pct,
             "avg_latency": analytics.average_inference_latency_ms,
+            "avg_form_score": analytics.average_form_score,
             "current_streak": analytics.current_streak,
             "best_streak": analytics.best_streak,
         }

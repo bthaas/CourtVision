@@ -22,6 +22,9 @@ class ShotEventPayload(BaseModel):
     confidence: float = Field(ge=0.0, le=1.0)
     inference_latency_ms: float = Field(ge=0.0)
     release_angle_deg: float | None = None
+    elbow_angle_deg: float | None = None
+    knee_angle_deg: float | None = None
+    torso_tilt_deg: float | None = None
 
 
 class SessionSummaryResponse(BaseModel):
@@ -31,6 +34,7 @@ class SessionSummaryResponse(BaseModel):
     misses: int
     fg_pct: float
     average_inference_latency_ms: float
+    average_form_score: float
     current_streak: int
     best_streak: int
     zone_breakdown: dict[str, dict[str, float | int]]

@@ -11,6 +11,7 @@ const emptyStats: SessionStats = {
   misses: 0,
   fgPct: 0,
   avgLatency: 0,
+  avgFormScore: 0,
   currentStreak: 0,
   bestStreak: 0,
 };
@@ -83,6 +84,16 @@ export function useCourtVisionSession(athleteId: string) {
     try {
       const summary = await getSummary(sessionId);
       setZones(summary.zone_breakdown);
+      setStats({
+        attempts: summary.attempts,
+        makes: summary.makes,
+        misses: summary.misses,
+        fgPct: summary.fg_pct,
+        avgLatency: summary.average_inference_latency_ms,
+        avgFormScore: summary.average_form_score,
+        currentStreak: summary.current_streak,
+        bestStreak: summary.best_streak,
+      });
     } catch {
       setError("Stopped session, but failed to load summary.");
     }

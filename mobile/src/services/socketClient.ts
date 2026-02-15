@@ -11,12 +11,17 @@ type ShotEventWire = {
   confidence: number;
   inference_latency_ms: number;
   release_angle_deg?: number;
+  elbow_angle_deg?: number;
+  knee_angle_deg?: number;
+  torso_tilt_deg?: number;
+  form_score?: number;
   session_stats: {
     attempts: number;
     makes: number;
     misses: number;
     fg_pct: number;
     avg_latency: number;
+    avg_form_score: number;
     current_streak: number;
     best_streak: number;
   };
@@ -53,6 +58,10 @@ export class CourtVisionSocketClient {
           confidence: payload.confidence,
           inferenceLatencyMs: payload.inference_latency_ms,
           releaseAngleDeg: payload.release_angle_deg,
+          elbowAngleDeg: payload.elbow_angle_deg,
+          kneeAngleDeg: payload.knee_angle_deg,
+          torsoTiltDeg: payload.torso_tilt_deg,
+          formScore: payload.form_score,
         },
         {
           attempts: payload.session_stats.attempts,
@@ -60,6 +69,7 @@ export class CourtVisionSocketClient {
           misses: payload.session_stats.misses,
           fgPct: payload.session_stats.fg_pct,
           avgLatency: payload.session_stats.avg_latency,
+          avgFormScore: payload.session_stats.avg_form_score,
           currentStreak: payload.session_stats.current_streak,
           bestStreak: payload.session_stats.best_streak,
         }
@@ -80,6 +90,9 @@ export class CourtVisionSocketClient {
       confidence: shot.confidence,
       inference_latency_ms: shot.inferenceLatencyMs,
       release_angle_deg: shot.releaseAngleDeg,
+      elbow_angle_deg: shot.elbowAngleDeg,
+      knee_angle_deg: shot.kneeAngleDeg,
+      torso_tilt_deg: shot.torsoTiltDeg,
     });
   }
 }

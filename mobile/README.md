@@ -23,4 +23,12 @@ EXPO_PUBLIC_API_URL=http://<your-ip>:5000
 To switch to real TFLite:
 - Create a native module bridge in iOS/Android that loads the `.tflite` model.
 - Keep the `TFLiteShotModel` interface so UI/state code remains unchanged.
-- Return `result`, `confidence`, `releaseAngleDeg`, court coordinates, and `inferenceLatencyMs` per frame.
+- Return `result`, `confidence`, `releaseAngleDeg`, pose angles, court coordinates, and `inferenceLatencyMs` per frame.
+
+## Dashboard metrics shown in app
+
+- Attempts, make/miss, FG%
+- Average inference latency
+- Average form score from pose features
+- Current/best make streak
+- Zone-level shooting heat map

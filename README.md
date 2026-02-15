@@ -6,7 +6,8 @@ CourtVision is an AI basketball training platform with a React Native mobile cli
 
 - On-device shot inference interface designed for TensorFlow Lite deployment.
 - Real-time make/miss event streaming over WebSockets to a live performance dashboard.
-- Zone-based heat maps and session metrics including FG%, streaks, and inference latency.
+- Custom pose-estimation metric pipeline (elbow, knee, torso angles) powering shot form scoring.
+- Zone-based heat maps and session metrics including FG%, streaks, form score, and inference latency.
 - Architecture designed to support sub-200ms model inference with live mobile feedback.
 
 ## Project structure
@@ -18,9 +19,9 @@ CourtVision is an AI basketball training platform with a React Native mobile cli
 ## Architecture
 
 1. Mobile client starts a session using `POST /api/sessions`.
-2. Mobile inference pipeline produces shot predictions (`make` / `miss`) and metadata.
+2. Mobile inference pipeline produces shot predictions and pose-derived features.
 3. Client emits `shot_event` over Socket.IO.
-4. Backend aggregates stats and zone heat map buckets.
+4. Backend aggregates stats, form score, and zone heat map buckets.
 5. Backend broadcasts live updates to subscribed dashboard clients.
 
 ## Quick start
@@ -32,7 +33,7 @@ cd backend
 python -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
-python -m courtvision_api.app
+python -m courtvision_api
 ```
 
 ### Mobile

@@ -20,6 +20,9 @@ class ShotEvent:
     confidence: float
     inference_latency_ms: float
     release_angle_deg: float | None = None
+    elbow_angle_deg: float | None = None
+    knee_angle_deg: float | None = None
+    torso_tilt_deg: float | None = None
 
 
 @dataclass(slots=True)

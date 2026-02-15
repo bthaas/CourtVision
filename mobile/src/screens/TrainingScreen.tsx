@@ -35,6 +35,7 @@ export function TrainingScreen() {
         <MetricCard label="FG%" value={percent(stats.fgPct)} />
         <MetricCard label="Make / Miss" value={`${stats.makes} / ${stats.misses}`} />
         <MetricCard label="Avg Inference" value={latency(stats.avgLatency)} />
+        <MetricCard label="Form Score" value={percent(stats.avgFormScore)} />
         <MetricCard label="Current Streak" value={`${stats.currentStreak}`} />
         <MetricCard label="Best Streak" value={`${stats.bestStreak}`} />
       </View>
@@ -60,7 +61,7 @@ export function TrainingScreen() {
         <Text style={styles.lastShotTitle}>Last Shot</Text>
         {lastShot ? (
           <Text style={styles.lastShotText}>
-            {lastShot.result.toUpperCase()} | conf {(lastShot.confidence * 100).toFixed(1)}% | latency {lastShot.inferenceLatencyMs.toFixed(0)}ms
+            {lastShot.result.toUpperCase()} | conf {(lastShot.confidence * 100).toFixed(1)}% | latency {lastShot.inferenceLatencyMs.toFixed(0)}ms | form {lastShot.formScore?.toFixed(1) ?? "n/a"}%
           </Text>
         ) : (
           <Text style={styles.lastShotText}>No shots streamed yet.</Text>

@@ -1,4 +1,4 @@
-from courtvision_api.analytics import calculate_session_analytics, get_zone
+from courtvision_api.analytics import calculate_form_score, calculate_session_analytics, get_zone
 from courtvision_api.models import SessionState, ShotEvent, ShotResult
 
 
@@ -11,6 +11,9 @@ def make_event(x: float, y: float, result: ShotResult, latency: float) -> ShotEv
         result=result,
         confidence=0.95,
         inference_latency_ms=latency,
+        elbow_angle_deg=90,
+        knee_angle_deg=112,
+        torso_tilt_deg=12,
     )
 
 
@@ -39,5 +42,19 @@ def test_calculate_session_analytics() -> None:
     assert analytics.best_streak == 2
     assert analytics.current_streak == 1
     assert analytics.average_inference_latency_ms == 175.0
+    assert analytics.average_form_score > 90
     assert analytics.zone_breakdown["left_corner_3"].makes == 1
     assert analytics.zone_breakdown["right_corner_3"].makes == 1
+
+
+def test_calculate_form_score_handles_missing_pose_data() -> None:
+    event = ShotEvent(
+        session_id="s",
+        timestamp_ms=1,
+        x_norm=0.5,
+        y_norm=0.5,
+        result=ShotResult.MAKE,
+        confidence=0.9,
+        inference_latency_ms=140,
+    )
+    assert calculate_form_score(event) == 0.0

@@ -9,14 +9,14 @@ cd backend
 python -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
-python -m courtvision_api.app
+python -m courtvision_api
 ```
 
 ## Test
 
 ```bash
-cd backend
-pytest
+cd /Users/bretthaas/CourtVision
+PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 PYTHONPATH=backend python3 -m pytest tests/backend -q
 ```
 
 ## API
@@ -25,3 +25,10 @@ pytest
 - `GET /api/sessions/<session_id>/summary` returns aggregate stats and heat map zone data.
 - Socket event `join_session`: subscribe to a session room.
 - Socket event `shot_event`: ingest one model inference result and broadcast updated stats.
+
+### Live stats payload includes
+
+- Attempts, makes, misses, FG%
+- Average inference latency
+- Average form score (pose-derived)
+- Current and best make streak

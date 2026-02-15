@@ -26,6 +26,9 @@ export class TrainingSessionController {
             confidence: output.confidence,
             inferenceLatencyMs: output.inferenceLatencyMs,
             releaseAngleDeg: output.releaseAngleDeg,
+            elbowAngleDeg: output.elbowAngleDeg,
+            kneeAngleDeg: output.kneeAngleDeg,
+            torsoTiltDeg: output.torsoTiltDeg,
             xNorm: output.xNorm,
             yNorm: output.yNorm,
           };

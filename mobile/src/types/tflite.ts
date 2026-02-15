@@ -4,6 +4,9 @@ export type TFLiteInferenceOutput = {
   result: ShotResult;
   confidence: number;
   releaseAngleDeg: number;
+  elbowAngleDeg: number;
+  kneeAngleDeg: number;
+  torsoTiltDeg: number;
   xNorm: number;
   yNorm: number;
   inferenceLatencyMs: number;

@@ -9,6 +9,10 @@ export type ShotInference = {
   confidence: number;
   inferenceLatencyMs: number;
   releaseAngleDeg?: number;
+  elbowAngleDeg?: number;
+  kneeAngleDeg?: number;
+  torsoTiltDeg?: number;
+  formScore?: number;
 };
 
 export type SessionStats = {
@@ -17,6 +21,7 @@ export type SessionStats = {
   misses: number;
   fgPct: number;
   avgLatency: number;
+  avgFormScore: number;
   currentStreak: number;
   bestStreak: number;
 };
@@ -44,6 +49,7 @@ export type SessionSummary = {
   misses: number;
   fg_pct: number;
   average_inference_latency_ms: number;
+  average_form_score: number;
   current_streak: number;
   best_streak: number;
   zone_breakdown: Record<ZoneName, ZoneStat>;
