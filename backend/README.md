@@ -12,6 +12,12 @@ pip install -r requirements.txt
 python -m courtvision_api
 ```
 
+Optional Socket.IO async mode override:
+
+```bash
+CV_SOCKET_ASYNC_MODE=eventlet python -m courtvision_api
+```
+
 ## Test
 
 ```bash

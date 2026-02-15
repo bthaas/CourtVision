@@ -1,8 +1,9 @@
 from __future__ import annotations
 
+import os
 import uuid
 
-from flask import Flask, jsonify, request
+from flask import Flask, request
 from flask_socketio import SocketIO, emit, join_room
 from pydantic import ValidationError
 
@@ -15,7 +16,8 @@ from .store import SessionStore
 def create_app() -> tuple[Flask, SocketIO, SessionStore]:
     app = Flask(__name__)
     app.config["SECRET_KEY"] = "courtvision-dev"
-    socketio = SocketIO(app, cors_allowed_origins="*", async_mode="eventlet")
+    async_mode = os.getenv("CV_SOCKET_ASYNC_MODE", "threading")
+    socketio = SocketIO(app, cors_allowed_origins="*", async_mode=async_mode)
     store = SessionStore()
 
     @app.get("/health")
