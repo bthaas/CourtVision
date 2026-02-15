@@ -2,6 +2,7 @@
 node_modules/
 .expo/
 dist/
+*.tsbuildinfo
 
 # Python
 __pycache__/
