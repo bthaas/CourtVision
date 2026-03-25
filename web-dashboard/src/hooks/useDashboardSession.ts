@@ -25,6 +25,8 @@ function defaultZones(): Record<ZoneName, ZoneStat> {
 export function useDashboardSession() {
   const [sessionId, setSessionId] = useState("");
   const [connected, setConnected] = useState(false);
+  const [athleteName, setAthleteName] = useState("Demo Athlete");
+  const [sessionStartTime, setSessionStartTime] = useState<number | null>(null);
   const [attempts, setAttempts] = useState(0);
   const [makes, setMakes] = useState(0);
   const [misses, setMisses] = useState(0);
@@ -63,7 +65,7 @@ export function useDashboardSession() {
       const response = await fetch(`${API_BASE_URL}/api/sessions`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ athlete_id: "web-dashboard" }),
+        body: JSON.stringify({ athlete_id: athleteName || "web-dashboard" }),
       });
       if (!response.ok) {
         throw new Error(`Failed to create session (${response.status})`);
@@ -82,6 +84,7 @@ export function useDashboardSession() {
     if (!nextId) return;
 
     setError("");
+    setSessionStartTime(Date.now());
     socketRef.current?.disconnect();
 
     const socket = io(API_BASE_URL, { transports: ["websocket"] });
@@ -123,6 +126,7 @@ export function useDashboardSession() {
     socketRef.current?.disconnect();
     socketRef.current = null;
     setConnected(false);
+    setSessionStartTime(null);
   }
 
   useEffect(() => {
@@ -134,6 +138,9 @@ export function useDashboardSession() {
   return {
     sessionId,
     connected,
+    athleteName,
+    setAthleteName,
+    sessionStartTime,
     attempts,
     makes,
     misses,
