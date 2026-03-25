@@ -37,6 +37,7 @@ export function useCourtVisionSession(athleteId: string) {
   const [phase, setPhase] = useState<SessionPhase>("idle");
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [sessionStartTime, setSessionStartTime] = useState<number | null>(null);
   const [stats, setStats] = useState<SessionStats>(emptyStats);
   const [lastShot, setLastShot] = useState<ShotInference | null>(null);
   const [zones, setZones] = useState<Record<ZoneName, ZoneStat>>(defaultZones);
@@ -65,6 +66,7 @@ export function useCourtVisionSession(athleteId: string) {
 
       setSessionId(id);
       setPhase("running");
+      setSessionStartTime(Date.now());
     } catch {
       setError("Could not start session. Check backend connection.");
       setPhase("error");
@@ -99,6 +101,7 @@ export function useCourtVisionSession(athleteId: string) {
     }
 
     setPhase("stopped");
+    setSessionStartTime(null);
   }
 
   useEffect(() => {
@@ -110,6 +113,7 @@ export function useCourtVisionSession(athleteId: string) {
   return {
     phase,
     sessionId,
+    sessionStartTime,
     error,
     canStart,
     stats,
