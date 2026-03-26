@@ -5,24 +5,13 @@ import { time } from "./utils/format";
 
 const FG_CIRCUMFERENCE = 2 * Math.PI * 34; // ≈ 213.63
 
-function formLabel(score: number): string {
-  if (score >= 90) return "Elite";
-  if (score >= 75) return "Good";
-  if (score >= 60) return "Fair";
-  return "Needs Work";
-}
-
-function formColor(score: number): string {
-  if (score >= 90) return "#adc6ff";
-  if (score >= 75) return "#ffb690";
-  return "#ffb4ab";
-}
-
 export function App() {
   const session = useDashboardSession();
   const [elapsed, setElapsed] = useState("00:00");
   const [showJoinForm, setShowJoinForm] = useState(false);
   const [joinId, setJoinId] = useState("");
+  const [joinToken, setJoinToken] = useState("");
+  const [copyStatus, setCopyStatus] = useState("");
 
   // Live session timer
   useEffect(() => {
@@ -44,7 +33,18 @@ export function App() {
   function handleJoinExisting(e: FormEvent) {
     e.preventDefault();
     session.setSessionId(joinId);
-    session.joinSession(joinId);
+    session.setViewToken(joinToken);
+    session.joinSession(joinId, joinToken);
+  }
+
+  async function handleCopyViewerAccess() {
+    if (!session.viewerShareUrl || typeof navigator === "undefined" || !navigator.clipboard) {
+      return;
+    }
+
+    await navigator.clipboard.writeText(session.viewerShareUrl);
+    setCopyStatus("Viewer link copied");
+    window.setTimeout(() => setCopyStatus(""), 2500);
   }
 
   // FG% circular progress
@@ -56,6 +56,13 @@ export function App() {
   // Last 4 latency readings for mini chart
   const latencyVals = session.feed.slice(0, 4).map((e) => e.inference_latency_ms);
   const maxLatency = Math.max(...latencyVals, 1);
+  const averageConfidence =
+    session.feed.length > 0
+      ? (session.feed.reduce((sum, event) => sum + event.confidence, 0) / session.feed.length) * 100
+      : 0;
+  const lowCaptureCount = session.feed.filter(
+    (event) => event.capture_quality === "low" || event.capture_quality === "unusable"
+  ).length;
 
   // ── Start Screen ───────────────────────────────────────────────────────────
   if (!session.connected) {
@@ -65,7 +72,7 @@ export function App() {
           <h1 className="text-3xl font-headline font-bold tracking-tighter text-primary uppercase">
             COURTVISION
           </h1>
-          <p className="text-sm text-on-surface-variant">Professional Shot Analytics</p>
+          <p className="text-sm text-on-surface-variant">Live Shooting Tracker</p>
 
           <div className="w-full text-left">
             <label className="text-[10px] font-bold uppercase tracking-widest text-on-surface-variant block mb-2">
@@ -82,8 +89,9 @@ export function App() {
           <button
             className="w-full bg-primary text-on-primary font-headline font-bold uppercase text-sm tracking-widest px-6 py-3 rounded-lg hover:brightness-110 transition-all"
             onClick={session.createAndJoinSession}
+            disabled={session.bootstrapping}
           >
-            Start New Session
+            {session.bootstrapping ? "Preparing Dashboard..." : "Start New Session"}
           </button>
 
           <button
@@ -101,9 +109,15 @@ export function App() {
                 onChange={(e) => setJoinId(e.target.value)}
                 placeholder="Paste session UUID"
               />
+              <input
+                className="w-full bg-surface-container border border-white/10 rounded-lg px-3 py-2 text-sm text-on-surface outline-none focus:border-primary/50"
+                value={joinToken}
+                onChange={(e) => setJoinToken(e.target.value)}
+                placeholder="Paste viewer token"
+              />
               <button
                 type="submit"
-                disabled={!joinId.trim()}
+                disabled={!joinId.trim() || !joinToken.trim()}
                 className="w-full bg-surface-container-high border border-white/10 text-on-surface font-bold text-sm py-2 rounded-lg hover:bg-white/10 transition-colors disabled:opacity-40"
               >
                 Join
@@ -112,6 +126,30 @@ export function App() {
           )}
 
           {session.error && <p className="text-error text-xs">{session.error}</p>}
+
+          {session.sessionHistory.length > 0 && (
+            <div className="w-full text-left border-t border-white/10 pt-4">
+              <p className="text-[10px] font-bold uppercase tracking-widest text-on-surface-variant mb-3">
+                Recent Sessions
+              </p>
+              <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
+                {session.sessionHistory.slice(0, 5).map((item) => (
+                  <div
+                    key={item.session_id}
+                    className="w-full bg-surface-container border border-white/5 rounded-lg px-3 py-2 text-left"
+                  >
+                    <div className="flex items-center justify-between gap-4">
+                      <span className="text-sm font-semibold text-on-surface">{item.athlete_display_name}</span>
+                      <span className="text-xs text-primary">{item.fg_pct.toFixed(0)}%</span>
+                    </div>
+                    <div className="text-[11px] text-on-surface-variant mt-1">
+                      {item.attempts} shots • {new Date(item.started_at).toLocaleString()}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       </div>
     );
@@ -159,6 +197,13 @@ export function App() {
               title="Session info"
             >
               <span className="material-symbols-outlined">sensors</span>
+            </button>
+            <button
+              className="bg-surface-container-high hover:bg-white/10 transition-colors text-on-surface text-[10px] font-bold uppercase tracking-widest px-4 py-2.5 rounded"
+              onClick={handleCopyViewerAccess}
+              title="Copy viewer share link"
+            >
+              {copyStatus || "Copy Viewer Link"}
             </button>
             <button
               className="bg-error-container hover:brightness-110 transition-all text-on-error-container font-headline font-bold uppercase text-xs tracking-widest px-6 py-2.5 rounded shadow-lg shadow-error/10"
@@ -288,32 +333,32 @@ export function App() {
                 </div>
               </div>
 
-              {/* Form Score Card */}
+              {/* Shot Confidence Card */}
               <div className="glass p-5 rounded-xl flex-none">
                 <div className="flex justify-between items-start mb-4">
                   <span className="text-[10px] font-bold uppercase tracking-widest text-on-surface-variant">
-                    Avg Form Score
+                    Avg Shot Confidence
                   </span>
-                  <span className="material-symbols-outlined text-primary text-lg">fitness_center</span>
+                  <span className="material-symbols-outlined text-primary text-lg">track_changes</span>
                 </div>
                 <div className="flex items-center gap-6">
                   <div
                     className="text-5xl font-headline font-bold"
-                    style={{ color: session.avgFormScore > 0 ? formColor(session.avgFormScore) : "#424754" }}
+                    style={{ color: averageConfidence > 0 ? "#adc6ff" : "#424754" }}
                   >
-                    {session.avgFormScore > 0 ? Math.round(session.avgFormScore) : "--"}
+                    {averageConfidence > 0 ? Math.round(averageConfidence) : "--"}
                   </div>
                   <div className="flex-1 space-y-2">
                     <div className="flex justify-between text-[10px] uppercase font-bold tracking-tighter">
-                      <span className="text-on-surface-variant">Mechanics</span>
+                      <span className="text-on-surface-variant">Tracker Confidence</span>
                       <span className="text-primary">
-                        {session.avgFormScore > 0 ? formLabel(session.avgFormScore) : "N/A"}
+                        {lowCaptureCount > 0 ? `${lowCaptureCount} flagged` : "Stable"}
                       </span>
                     </div>
                     <div className="w-full h-2 bg-surface-container rounded-full overflow-hidden">
                       <div
                         className="h-full bg-primary transition-all duration-500"
-                        style={{ width: `${Math.min(100, session.avgFormScore)}%` }}
+                        style={{ width: `${Math.min(100, averageConfidence)}%` }}
                       />
                     </div>
                   </div>
@@ -375,8 +420,8 @@ export function App() {
                     <th className="px-6 py-2">Timestamp</th>
                     <th className="px-6 py-2">Zone</th>
                     <th className="px-6 py-2">Outcome</th>
-                    <th className="px-6 py-2">Form Score</th>
-                    <th className="px-6 py-2">Trajectory</th>
+                    <th className="px-6 py-2">Confidence</th>
+                    <th className="px-6 py-2">Capture</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-white/[0.03]">
@@ -389,7 +434,7 @@ export function App() {
                   ) : (
                     session.feed.map((event) => {
                       const isMake = event.result === "make";
-                      const formScore = event.form_score ?? 0;
+                      const confidence = Math.round(event.confidence * 100);
                       return (
                         <tr key={event.timestamp_ms} className="hover:bg-white/5 transition-colors group">
                           <td className="px-6 py-2.5 text-xs font-headline text-outline">
@@ -415,19 +460,15 @@ export function App() {
                             <div className="flex items-center gap-3">
                               <div className="w-20 h-1.5 bg-surface-container rounded-full overflow-hidden">
                                 <div
-                                  className="h-full bg-primary transition-all"
-                                  style={{ width: `${Math.min(100, formScore)}%` }}
+                                  className={`h-full transition-all ${isMake ? "bg-secondary" : "bg-primary"}`}
+                                  style={{ width: `${Math.min(100, confidence)}%` }}
                                 />
                               </div>
-                              <span className="text-[10px] font-bold">
-                                {formScore > 0 ? Math.round(formScore) : "--"}
-                              </span>
+                              <span className="text-[10px] font-bold">{confidence}%</span>
                             </div>
                           </td>
                           <td className="px-6 py-2.5 text-[10px] text-outline">
-                            {event.release_angle_deg != null
-                              ? `${event.release_angle_deg.toFixed(0)}° arc`
-                              : `${(event.confidence * 100).toFixed(0)}% conf`}
+                            {(event.capture_quality ?? "unknown").replace("_", " ")}
                           </td>
                         </tr>
                       );

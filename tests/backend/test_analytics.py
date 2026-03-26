@@ -1,19 +1,25 @@
-from courtvision_api.analytics import calculate_form_score, calculate_session_analytics, get_zone
-from courtvision_api.models import SessionState, ShotEvent, ShotResult
+from courtvision_api.analytics import calculate_session_analytics, get_zone
+from courtvision_api.models import CaptureQuality, SessionState, ShotEvent, ShotResult
 
 
-def make_event(x: float, y: float, result: ShotResult, latency: float) -> ShotEvent:
+def make_event(
+    x: float,
+    y: float,
+    result: ShotResult,
+    latency: float,
+    *,
+    confidence: float = 0.95,
+    capture_quality: CaptureQuality | None = None,
+) -> ShotEvent:
     return ShotEvent(
         session_id="session-1",
         timestamp_ms=1,
         x_norm=x,
         y_norm=y,
         result=result,
-        confidence=0.95,
+        confidence=confidence,
         inference_latency_ms=latency,
-        elbow_angle_deg=90,
-        knee_angle_deg=112,
-        torso_tilt_deg=12,
+        capture_quality=capture_quality,
     )
 
 
@@ -42,19 +48,20 @@ def test_calculate_session_analytics() -> None:
     assert analytics.best_streak == 2
     assert analytics.current_streak == 1
     assert analytics.average_inference_latency_ms == 175.0
-    assert analytics.average_form_score > 90
+    assert analytics.quality_flags["low_confidence"] == 0
+    assert analytics.quality_flags["low_capture_quality"] == 0
     assert analytics.zone_breakdown["left_corner_3"].makes == 1
     assert analytics.zone_breakdown["right_corner_3"].makes == 1
 
 
-def test_calculate_form_score_handles_missing_pose_data() -> None:
-    event = ShotEvent(
-        session_id="s",
-        timestamp_ms=1,
-        x_norm=0.5,
-        y_norm=0.5,
-        result=ShotResult.MAKE,
-        confidence=0.9,
-        inference_latency_ms=140,
-    )
-    assert calculate_form_score(event) == 0.0
+def test_calculate_session_analytics_tracks_quality_flags() -> None:
+    session = SessionState(session_id="session-1", athlete_id="athlete-1")
+    session.events = [
+        make_event(0.2, 0.2, ShotResult.MAKE, 140, confidence=0.62),
+        make_event(0.8, 0.2, ShotResult.MISS, 150, capture_quality=CaptureQuality.LOW),
+    ]
+
+    analytics = calculate_session_analytics(session)
+
+    assert analytics.quality_flags["low_confidence"] == 1
+    assert analytics.quality_flags["low_capture_quality"] == 1

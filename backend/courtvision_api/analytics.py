@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from .models import SessionState, ShotEvent, ShotResult, ZoneStats
+from .models import CaptureQuality, SessionState, ShotEvent, ShotResult, ZoneStats
 
 ZONE_NAMES = [
     "left_corner_3",
@@ -15,7 +15,6 @@ ZONE_NAMES = [
     "right_midrange",
 ]
 
-
 @dataclass(slots=True)
 class SessionAnalytics:
     attempts: int
@@ -23,10 +22,10 @@ class SessionAnalytics:
     misses: int
     fg_pct: float
     average_inference_latency_ms: float
-    average_form_score: float
     current_streak: int
     best_streak: int
     zone_breakdown: dict[str, ZoneStats]
+    quality_flags: dict[str, int]
 
 
 def get_zone(x_norm: float, y_norm: float) -> str:
@@ -53,6 +52,27 @@ def build_zone_buckets() -> dict[str, ZoneStats]:
     return {name: ZoneStats() for name in ZONE_NAMES}
 
 
+def serialize_zone_breakdown(zone_breakdown: dict[str, ZoneStats]) -> dict[str, dict[str, float | int]]:
+    return {
+        zone: {
+            "attempts": stats.attempts,
+            "makes": stats.makes,
+            "percentage": stats.percentage,
+        }
+        for zone, stats in zone_breakdown.items()
+    }
+
+
+def summarize_quality_flags(events: list[ShotEvent]) -> dict[str, int]:
+    quality = {"low_confidence": 0, "low_capture_quality": 0}
+    for event in events:
+        if event.confidence < 0.65:
+            quality["low_confidence"] += 1
+        if event.capture_quality in {CaptureQuality.LOW, CaptureQuality.UNUSABLE}:
+            quality["low_capture_quality"] += 1
+    return quality
+
+
 def calculate_session_analytics(session: SessionState) -> SessionAnalytics:
     attempts = len(session.events)
     makes = sum(1 for event in session.events if event.result == ShotResult.MAKE)
@@ -61,8 +81,6 @@ def calculate_session_analytics(session: SessionState) -> SessionAnalytics:
 
     latencies = [event.inference_latency_ms for event in session.events]
     average_inference_latency_ms = round(sum(latencies) / len(latencies), 2) if latencies else 0.0
-    form_scores = [calculate_form_score(event) for event in session.events]
-    average_form_score = round(sum(form_scores) / len(form_scores), 1) if form_scores else 0.0
 
     current_streak = 0
     best_streak = 0
@@ -95,45 +113,26 @@ def calculate_session_analytics(session: SessionState) -> SessionAnalytics:
         misses=misses,
         fg_pct=fg_pct,
         average_inference_latency_ms=average_inference_latency_ms,
-        average_form_score=average_form_score,
         current_streak=ending_streak,
         best_streak=best_streak,
         zone_breakdown=zone_breakdown,
+        quality_flags=summarize_quality_flags(session.events),
     )
-
-
-def _score_angle(value: float | None, target: float, tolerance: float) -> float:
-    if value is None:
-        return 0.0
-    delta = abs(value - target)
-    if delta >= tolerance:
-        return 0.0
-    return (1 - (delta / tolerance)) * 100
-
-
-def calculate_form_score(payload: ShotEvent) -> float:
-    # Lightweight form proxy from estimated joint angles.
-    elbow_score = _score_angle(payload.elbow_angle_deg, target=92.0, tolerance=35.0)
-    knee_score = _score_angle(payload.knee_angle_deg, target=115.0, tolerance=45.0)
-    torso_score = _score_angle(payload.torso_tilt_deg, target=11.0, tolerance=18.0)
-
-    blended = (elbow_score * 0.45) + (knee_score * 0.35) + (torso_score * 0.2)
-    return round(blended, 1)
 
 
 def serialize_event(payload: ShotEvent) -> dict[str, str | int | float | None]:
     return {
         "session_id": payload.session_id,
+        "event_id": payload.event_id,
+        "sequence": payload.sequence,
         "timestamp_ms": payload.timestamp_ms,
+        "client_sent_at_ms": payload.client_sent_at_ms,
         "x_norm": payload.x_norm,
         "y_norm": payload.y_norm,
         "result": payload.result.value,
         "confidence": payload.confidence,
         "inference_latency_ms": payload.inference_latency_ms,
-        "release_angle_deg": payload.release_angle_deg,
-        "elbow_angle_deg": payload.elbow_angle_deg,
-        "knee_angle_deg": payload.knee_angle_deg,
-        "torso_tilt_deg": payload.torso_tilt_deg,
-        "form_score": calculate_form_score(payload),
+        "model_version": payload.model_version,
+        "capture_quality": payload.capture_quality.value if payload.capture_quality is not None else None,
         "zone": get_zone(payload.x_norm, payload.y_norm),
     }

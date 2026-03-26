@@ -1,0 +1,88 @@
+{
+  "model_version": "baseline-synth-shot-model/v1",
+  "artifact_path": "ml/artifacts/baseline_shot_model.tflite",
+  "keras_path": "ml/artifacts/baseline_shot_model.keras",
+  "sha256": "aa6f34d8fc0a5cca074ec18e63a9ff677888c5070db5dccfb615fd4ff611f82b",
+  "feature_names": [
+    "release_angle_deg",
+    "elbow_angle_deg",
+    "knee_angle_deg",
+    "torso_tilt_deg",
+    "x_norm",
+    "y_norm",
+    "confidence",
+    "capture_quality_code",
+    "pose_detected"
+  ],
+  "dataset": {
+    "type": "synthetic_structured_features",
+    "sample_count": 4096,
+    "train_count": 3276,
+    "validation_count": 820,
+    "note": "Synthetic labels are derived from backend-aligned heuristics. Replace before production claims."
+  },
+  "metrics": {
+    "form_score_loss": 0.004415301606059074,
+    "form_score_mae": 0.05038261413574219,
+    "loss": 0.24840161204338074,
+    "make_probability_accuracy": 0.8378048539161682,
+    "make_probability_loss": 0.34964558482170105
+  },
+  "training": {
+    "epochs": 10,
+    "batch_size": 64,
+    "seed": 7
+  },
+  "history_tail": {
+    "form_score_loss": [
+      0.007848355919122696,
+      0.006966783665120602,
+      0.006372407078742981
+    ],
+    "form_score_mae": [
+      0.06742247194051743,
+      0.06333569437265396,
+      0.06015664339065552
+    ],
+    "loss": [
+      0.24893678724765778,
+      0.24744686484336853,
+      0.24106547236442566
+    ],
+    "make_probability_accuracy": [
+      0.8376068472862244,
+      0.8400488495826721,
+      0.848901093006134
+    ],
+    "make_probability_loss": [
+      0.3499125838279724,
+      0.34869688749313354,
+      0.33916717767715454
+    ],
+    "val_form_score_loss": [
+      0.0053627085871994495,
+      0.004933540243655443,
+      0.004399320110678673
+    ],
+    "val_form_score_mae": [
+      0.055765021592378616,
+      0.05319332331418991,
+      0.05038261041045189
+    ],
+    "val_loss": [
+      0.2507210969924927,
+      0.24924813210964203,
+      0.24840158224105835
+    ],
+    "val_make_probability_accuracy": [
+      0.8414633870124817,
+      0.8365853428840637,
+      0.8378048539161682
+    ],
+    "val_make_probability_loss": [
+      0.3537342846393585,
+      0.3517579436302185,
+      0.35074132680892944
+    ]
+  }
+}

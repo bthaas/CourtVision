@@ -9,6 +9,10 @@ __pycache__/
 *.pyc
 .venv/
 .env
+*.db
+*.sqlite
+ml/runs/
+ml/checkpoints/
 
 # OS
 .DS_Store

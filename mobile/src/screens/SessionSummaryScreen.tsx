@@ -1,9 +1,13 @@
-import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
-import type { SessionStats, ZoneName, ZoneStat } from "../types/analytics";
+import { ScrollView, Share, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { CourtHeatMap } from "../components/HeatMap";
+import type { SessionStats, ShotInference, ZoneName, ZoneStat } from "../types/analytics";
 
 type Props = {
   stats: SessionStats;
+  shots: ShotInference[];
   zones: Record<ZoneName, ZoneStat>;
+  sessionId: string | null;
+  viewerShareUrl: string | null;
   onNewSession: () => void;
 };
 
@@ -22,29 +26,93 @@ const C = {
   border: "rgba(255, 255, 255, 0.08)",
 };
 
-// Decorative sparkline — last-N form scores from session (placeholder progression)
-const SPARK_HEIGHTS = [55, 42, 68, 60, 80, 74, 88, 85, 90, 95];
+const ZONE_LABELS: Record<ZoneName, string> = {
+  left_corner_3: "Left Corner 3",
+  left_wing_3: "Left Wing 3",
+  top_key_3: "Top Key 3",
+  right_wing_3: "Right Wing 3",
+  right_corner_3: "Right Corner 3",
+  left_midrange: "Left Midrange",
+  center_paint: "Paint",
+  right_midrange: "Right Midrange",
+};
 
-export function SessionSummaryScreen({ stats, onNewSession }: Props) {
+function getHotZone(zones: Record<ZoneName, ZoneStat>): [ZoneName, ZoneStat] | null {
+  return (
+    Object.entries(zones)
+      .filter(([, zone]) => zone.attempts > 0)
+      .sort((left, right) => {
+        const [, leftZone] = left as [ZoneName, ZoneStat];
+        const [, rightZone] = right as [ZoneName, ZoneStat];
+        return rightZone.percentage - leftZone.percentage || rightZone.attempts - leftZone.attempts;
+      })[0] as [ZoneName, ZoneStat] | undefined
+  ) ?? null;
+}
+
+function getFgTrendDelta(shots: ShotInference[]): number | null {
+  if (shots.length < 4) {
+    return null;
+  }
+
+  const midpoint = Math.floor(shots.length / 2);
+  const opening = shots.slice(0, midpoint);
+  const closing = shots.slice(midpoint);
+
+  const fgPct = (values: ShotInference[]) =>
+    (values.filter((shot) => shot.result === "make").length / values.length) * 100;
+
+  return fgPct(closing) - fgPct(opening);
+}
+
+export function SessionSummaryScreen({ stats, shots, zones, sessionId, viewerShareUrl, onNewSession }: Props) {
   const today = new Date().toLocaleDateString("en-US", {
     month: "long",
     day: "numeric",
     year: "numeric",
   }).toUpperCase();
 
-  const sparkMax = Math.max(...SPARK_HEIGHTS);
-  const sparkMin = Math.min(...SPARK_HEIGHTS);
+  const hotZone = getHotZone(zones);
+  const recentShots = shots.slice(-18);
+  const trendShots = shots.slice(-10);
+  const sparkMax = Math.max(...trendShots.map((shot) => shot.confidence), 1);
+  const sparkMin = Math.min(...trendShots.map((shot) => shot.confidence), 0);
   const sparkRange = sparkMax - sparkMin || 1;
+  const trendDelta = getFgTrendDelta(trendShots);
+  const lowTrustShots = shots.filter(
+    (shot) => shot.captureQuality === "low" || shot.captureQuality === "unusable"
+  ).length;
+  const averageConfidence =
+    shots.length > 0 ? (shots.reduce((sum, shot) => sum + shot.confidence, 0) / shots.length) * 100 : 0;
+  const activeZones = Object.values(zones).filter((zone) => zone.attempts > 0).length;
+  const modelVersion =
+    [...shots].reverse().find((shot) => typeof shot.modelVersion === "string")?.modelVersion ?? "not reported";
+
+  async function handleShare() {
+    const hotZoneLine = hotZone
+      ? `Hot zone: ${ZONE_LABELS[hotZone[0]]} (${hotZone[1].makes}/${hotZone[1].attempts}, ${hotZone[1].percentage.toFixed(0)}%)`
+      : "Hot zone: not enough shot data yet";
+    const sessionLine = sessionId ? `Session: ${sessionId.slice(0, 8).toUpperCase()}` : "Session: local summary";
+
+    await Share.share({
+      message: [
+        "CourtVision Session Summary",
+        sessionLine,
+        `Shots: ${stats.attempts}`,
+        `FG%: ${stats.fgPct.toFixed(1)}%`,
+        `Best streak: ${stats.bestStreak}`,
+        `Avg confidence: ${averageConfidence > 0 ? `${averageConfidence.toFixed(0)}%` : "n/a"}`,
+        hotZoneLine,
+        ...(viewerShareUrl ? [`Viewer link: ${viewerShareUrl}`] : []),
+      ].join("\n"),
+    });
+  }
 
   return (
     <ScrollView style={ss.root} contentContainerStyle={ss.content} showsVerticalScrollIndicator={false}>
-
-      {/* Top bar */}
       <View style={ss.topBar}>
         <Text style={ss.logo}>COURT VISION</Text>
       </View>
 
-      {/* Title */}
       <View style={ss.titleSection}>
         <View style={ss.verifiedRow}>
           <View style={ss.verifiedDot} />
@@ -54,38 +122,38 @@ export function SessionSummaryScreen({ stats, onNewSession }: Props) {
         <Text style={ss.dateText}>{today}</Text>
       </View>
 
-      {/* Shot chart (decorative court) */}
       <View style={ss.courtWrap}>
-        <View style={ss.courtOutline} />
-        <View style={ss.courtKey} />
-        {/* Simulated shot dots */}
-        {([
-          { left: "24%", bottom: "28%" },
-          { left: "32%", bottom: "44%" },
-          { left: "50%", bottom: "58%" },
-          { right: "24%", bottom: "32%" },
-          { right: "32%", bottom: "48%" },
-          { left: "48%", bottom: "22%" },
-        ] as const).map((pos, i) => (
-          <View
-            key={i}
-            style={[
-              ss.shotDot,
-              {
-                left: (pos as any).left,
-                right: (pos as any).right,
-                bottom: pos.bottom,
-                backgroundColor: i % 2 === 0 ? C.secondary : C.primary,
-              },
-            ]}
-          />
-        ))}
-        <View style={ss.chartBadge}>
-          <Text style={ss.chartBadgeText}>Shot Distribution Heatmap</Text>
+        <View style={ss.courtChart}>
+          <CourtHeatMap zones={zones} />
+          <View pointerEvents="none" style={ss.shotOverlay}>
+            {recentShots.map((shot, index) => (
+              <View
+                key={`${shot.timestampMs}-${index}`}
+                style={[
+                  ss.shotDot,
+                  {
+                    left: `${shot.xNorm * 100}%`,
+                    bottom: `${shot.yNorm * 100}%`,
+                    backgroundColor: shot.result === "make" ? C.secondary : C.primary,
+                    opacity: 0.45 + ((index + 1) / Math.max(recentShots.length, 1)) * 0.55,
+                  },
+                ]}
+              />
+            ))}
+          </View>
+        </View>
+        <View style={ss.chartFooter}>
+          <Text style={ss.chartBadgeText}>
+            {hotZone
+              ? `HOT ZONE  ${ZONE_LABELS[hotZone[0]].toUpperCase()}`
+              : "SHOT DISTRIBUTION HEATMAP"}
+          </Text>
+          <Text style={ss.chartFootnote}>
+            {recentShots.length > 0 ? `${recentShots.length} recent shots plotted` : "Waiting for shot location data"}
+          </Text>
         </View>
       </View>
 
-      {/* Stats 2×2 grid */}
       <View style={ss.statsGrid}>
         <View style={ss.statCard}>
           <Text style={ss.cardLabel}>Total Shots</Text>
@@ -113,59 +181,88 @@ export function SessionSummaryScreen({ stats, onNewSession }: Props) {
         </View>
 
         <View style={ss.statCard}>
-          <Text style={ss.cardLabel}>Avg Form Score</Text>
+          <Text style={ss.cardLabel}>Avg Confidence</Text>
           <View style={ss.cardBottom}>
             <Text style={[ss.cardValue, { color: C.primary }]}>
-              {stats.avgFormScore > 0 ? Math.round(stats.avgFormScore) : "--"}
+              {averageConfidence > 0 ? Math.round(averageConfidence) : "--"}
             </Text>
-            <Text style={ss.outOf}>/ 100</Text>
+            <Text style={ss.outOf}>%</Text>
           </View>
         </View>
       </View>
 
-      {/* Form score trend */}
       <View style={ss.trendCard}>
         <View style={ss.trendHeader}>
-          <Text style={ss.cardLabel}>Form Score Trend</Text>
+          <Text style={ss.cardLabel}>Shot Trend</Text>
           <View style={ss.consistencyBadge}>
-            <Text style={ss.consistencyText}>+4.2% Consistency</Text>
+            <Text style={ss.consistencyText}>
+              {trendDelta == null
+                ? "Trend building"
+                : `${trendDelta >= 0 ? "+" : ""}${trendDelta.toFixed(0)}% finish`}
+            </Text>
           </View>
         </View>
-        <View style={ss.sparkRow}>
-          {SPARK_HEIGHTS.map((h, i) => {
-            const pct = (h - sparkMin) / sparkRange;
-            const barH = 16 + pct * 64;
-            const opacity = 0.25 + pct * 0.75;
-            const isLast = i === SPARK_HEIGHTS.length - 1;
-            return (
-              <View
-                key={i}
-                style={[ss.sparkBar, {
-                  height: barH,
-                  backgroundColor: isLast ? C.primary : C.primary,
-                  opacity: isLast ? 1 : opacity,
-                }]}
-              />
-            );
-          })}
+        {trendShots.length === 0 ? (
+          <Text style={ss.emptyTrendText}>
+            Shot trend will appear once a few tracked attempts are recorded.
+          </Text>
+        ) : (
+          <>
+            <View style={ss.sparkRow}>
+              {trendShots.map((shot, i) => {
+                const pct = (shot.confidence - sparkMin) / sparkRange;
+                const barH = 16 + pct * 64;
+                const opacity = 0.25 + pct * 0.75;
+                const isLast = i === trendShots.length - 1;
+                return (
+                  <View
+                    key={`${shot.timestampMs}-${i}`}
+                    style={[
+                      ss.sparkBar,
+                      {
+                        height: barH,
+                        backgroundColor: shot.result === "make" ? C.secondary : C.primary,
+                        opacity: isLast ? 1 : opacity,
+                      },
+                    ]}
+                  />
+                );
+              })}
+            </View>
+            <View style={ss.sparkAxisRow}>
+              <Text style={ss.sparkAxis}>START</Text>
+              <Text style={ss.sparkAxis}>MID</Text>
+              <Text style={ss.sparkAxis}>END</Text>
+            </View>
+          </>
+        )}
+      </View>
+
+      <View style={ss.trustCard}>
+        <View style={ss.trustHeader}>
+          <Text style={ss.cardLabel}>Session Signals</Text>
+          <Text style={ss.trustVersion}>{modelVersion}</Text>
         </View>
-        <View style={ss.sparkAxisRow}>
-          <Text style={ss.sparkAxis}>START</Text>
-          <Text style={ss.sparkAxis}>MID</Text>
-          <Text style={ss.sparkAxis}>END</Text>
+        <View style={ss.trustRow}>
+          <Text style={ss.trustMetric}>{activeZones}</Text>
+          <Text style={ss.trustCopy}>shooting zones recorded with attempts</Text>
+        </View>
+        <View style={ss.trustRow}>
+          <Text style={[ss.trustMetric, { color: lowTrustShots > 0 ? C.secondary : C.primary }]}>
+            {lowTrustShots}
+          </Text>
+          <Text style={ss.trustCopy}>shots flagged low capture quality</Text>
         </View>
       </View>
 
-      {/* Actions */}
       <View style={ss.actions}>
-        <TouchableOpacity style={ss.shareBtn} activeOpacity={0.8}>
+        <TouchableOpacity style={ss.shareBtn} activeOpacity={0.8} onPress={handleShare}>
           <Text style={ss.shareBtnText}>SHARE RESULTS</Text>
         </TouchableOpacity>
         <TouchableOpacity style={ss.newBtn} onPress={onNewSession} activeOpacity={0.85}>
           <Text style={ss.newBtnText}>NEW SESSION</Text>
         </TouchableOpacity>
       </View>
-
     </ScrollView>
   );
 }
@@ -216,39 +313,19 @@ const ss = StyleSheet.create({
 
   courtWrap: {
     marginHorizontal: 24,
-    height: 200,
     backgroundColor: C.glass,
     borderRadius: 12,
     borderWidth: 1,
     borderColor: C.border,
-    overflow: "hidden",
     marginBottom: 20,
+    padding: 14,
   },
-  courtOutline: {
-    position: "absolute",
-    top: 16,
-    left: 28,
-    right: 28,
-    bottom: 0,
-    borderTopWidth: 1,
-    borderLeftWidth: 1,
-    borderRightWidth: 1,
-    borderColor: "rgba(255,255,255,0.1)",
-    borderTopLeftRadius: 80,
-    borderTopRightRadius: 80,
+  courtChart: {
+    position: "relative",
+    width: "100%",
   },
-  courtKey: {
-    position: "absolute",
-    bottom: 0,
-    left: "38%",
-    right: "38%",
-    height: 72,
-    borderTopWidth: 1,
-    borderLeftWidth: 1,
-    borderRightWidth: 1,
-    borderColor: "rgba(255,255,255,0.1)",
-    borderTopLeftRadius: 40,
-    borderTopRightRadius: 40,
+  shotOverlay: {
+    ...StyleSheet.absoluteFillObject,
   },
   shotDot: {
     position: "absolute",
@@ -257,13 +334,15 @@ const ss = StyleSheet.create({
     borderRadius: 5,
     shadowRadius: 6,
     shadowOpacity: 0.8,
+    marginLeft: -5,
+    marginBottom: -5,
+    borderWidth: 1,
+    borderColor: "rgba(10,14,26,0.9)",
   },
-  chartBadge: {
-    position: "absolute",
-    bottom: 10,
-    left: 0,
-    right: 0,
+  chartFooter: {
+    marginTop: 14,
     alignItems: "center",
+    gap: 6,
   },
   chartBadgeText: {
     backgroundColor: "rgba(49,52,66,0.85)",
@@ -275,6 +354,11 @@ const ss = StyleSheet.create({
     paddingVertical: 4,
     borderRadius: 4,
     overflow: "hidden",
+  },
+  chartFootnote: {
+    color: C.outline,
+    fontSize: 11,
+    fontWeight: "600",
   },
 
   statsGrid: {
@@ -321,6 +405,44 @@ const ss = StyleSheet.create({
     padding: 24,
     marginBottom: 20,
   },
+  trustCard: {
+    marginHorizontal: 24,
+    backgroundColor: C.glass,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: C.border,
+    padding: 18,
+    marginBottom: 20,
+    gap: 12,
+  },
+  trustHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 12,
+  },
+  trustVersion: {
+    color: C.primary,
+    fontSize: 10,
+    fontWeight: "700",
+    letterSpacing: 1.2,
+  },
+  trustRow: {
+    flexDirection: "row",
+    alignItems: "baseline",
+    gap: 10,
+  },
+  trustMetric: {
+    color: C.onSurface,
+    fontSize: 22,
+    fontWeight: "900",
+  },
+  trustCopy: {
+    color: C.onSurfaceVariant,
+    fontSize: 12,
+    lineHeight: 18,
+    flex: 1,
+  },
   trendHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -334,6 +456,11 @@ const ss = StyleSheet.create({
     borderRadius: 4,
   },
   consistencyText: { color: C.primary, fontSize: 10, fontWeight: "600" },
+  emptyTrendText: {
+    color: C.onSurfaceVariant,
+    fontSize: 13,
+    lineHeight: 20,
+  },
   sparkRow: {
     flexDirection: "row",
     alignItems: "flex-end",

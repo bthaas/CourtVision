@@ -1,5 +1,6 @@
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { CourtHeatMap } from "../components/HeatMap";
+import type { ReadinessCheck } from "../constants/runtime";
 import type { SessionStats, ZoneName, ZoneStat } from "../types/analytics";
 
 type Phase = "idle" | "starting" | "running" | "stopped" | "error";
@@ -11,6 +12,10 @@ type Props = {
   elapsed: string;
   error: string | null;
   canStart: boolean;
+  bootstrapping: boolean;
+  readinessChecks: ReadinessCheck[];
+  runtimeModeLabel: string;
+  runtimeModeDetail: string;
   onStart: () => void;
   onStop: () => void;
 };
@@ -35,14 +40,26 @@ const C = {
   border: "rgba(255, 255, 255, 0.08)",
 };
 
-function formLabel(score: number): string {
-  if (score >= 90) return "ELITE";
-  if (score >= 75) return "GOOD";
-  if (score >= 60) return "FAIR";
-  return "POOR";
+function statusColor(status: ReadinessCheck["status"]): string {
+  if (status === "ready") return "#ffb690";
+  if (status === "warning") return "#ffb4ab";
+  return "#8c909f";
 }
 
-export function TrainingScreen({ phase, stats, zones, elapsed, error, canStart, onStart, onStop }: Props) {
+export function TrainingScreen({
+  phase,
+  stats,
+  zones,
+  elapsed,
+  error,
+  canStart,
+  bootstrapping,
+  readinessChecks,
+  runtimeModeLabel,
+  runtimeModeDetail,
+  onStart,
+  onStop,
+}: Props) {
   const isLive = phase === "running";
 
   // ── Idle / Error ────────────────────────────────────────────────────────────
@@ -52,12 +69,30 @@ export function TrainingScreen({ phase, stats, zones, elapsed, error, canStart, 
         <View style={s.header}>
           <Text style={s.headerTitle}>COURT VISION</Text>
           <View style={s.aiChip}>
-            <Text style={s.aiChipText}>AI ANALYTICS</Text>
+            <Text style={s.aiChipText}>SHOT TRACKER</Text>
           </View>
         </View>
         <View style={s.idleBody}>
-          <Text style={s.idleHero}>Kinetic{"\n"}Precision</Text>
-          <Text style={s.idleSub}>Real-time shot analytics powered by pose estimation AI</Text>
+          <Text style={s.idleHero}>Track Every{"\n"}Shot</Text>
+          <Text style={s.idleSub}>Real-time tracking for makes, misses, streaks, and shot location</Text>
+          <View style={s.runtimeCard}>
+            <View style={s.runtimeHeader}>
+              <Text style={s.runtimePill}>{runtimeModeLabel.toUpperCase()}</Text>
+              <Text style={s.runtimeCaption}>Launch Path</Text>
+            </View>
+            <Text style={s.runtimeBody}>{runtimeModeDetail}</Text>
+            <View style={s.readinessGrid}>
+              {readinessChecks.map((check) => (
+                <View key={check.label} style={s.readinessCard}>
+                  <View style={s.readinessHeader}>
+                    <View style={[s.readinessDot, { backgroundColor: statusColor(check.status) }]} />
+                    <Text style={s.readinessLabel}>{check.label}</Text>
+                  </View>
+                  <Text style={s.readinessDetail}>{check.detail}</Text>
+                </View>
+              ))}
+            </View>
+          </View>
           {error ? <Text style={s.errorText}>{error}</Text> : null}
           <TouchableOpacity
             style={[s.startBtn, !canStart && s.btnDisabled]}
@@ -66,7 +101,7 @@ export function TrainingScreen({ phase, stats, zones, elapsed, error, canStart, 
             activeOpacity={0.85}
           >
             <Text style={s.startBtnText}>
-              {phase === "starting" ? "CONNECTING…" : "START SESSION"}
+              {bootstrapping ? "PREPARING…" : phase === "starting" ? "CONNECTING…" : "START SESSION"}
             </Text>
           </TouchableOpacity>
         </View>
@@ -99,7 +134,10 @@ export function TrainingScreen({ phase, stats, zones, elapsed, error, canStart, 
           <CourtHeatMap zones={zones} />
           <View style={s.aiPulse}>
             <View style={s.aiPulseDot} />
-            <Text style={s.aiPulseText}>LIVE AI PROCESSING</Text>
+            <Text style={s.aiPulseText}>LIVE SHOT TRACKING</Text>
+          </View>
+          <View style={s.liveModeBadge}>
+            <Text style={s.liveModeText}>{runtimeModeLabel.toUpperCase()}</Text>
           </View>
         </View>
 
@@ -110,10 +148,16 @@ export function TrainingScreen({ phase, stats, zones, elapsed, error, canStart, 
             <Text style={s.miniValue}>{stats.attempts}</Text>
           </View>
           <View style={s.miniCard}>
-            <Text style={s.miniLabel}>STREAK</Text>
-            <Text style={[s.miniValue, { color: C.secondary }]}>{stats.currentStreak}</Text>
+            <Text style={s.miniLabel}>BEST STREAK</Text>
+            <Text style={[s.miniValue, { color: C.secondary }]}>{stats.bestStreak}</Text>
           </View>
         </View>
+
+        {error ? (
+          <View style={s.liveErrorCard}>
+            <Text style={s.liveErrorText}>{error}</Text>
+          </View>
+        ) : null}
       </ScrollView>
 
       {/* Bottom performance bar */}
@@ -136,7 +180,7 @@ export function TrainingScreen({ phase, stats, zones, elapsed, error, canStart, 
 
           {/* Streak */}
           <View style={s.streakGroup}>
-            <Text style={s.sheetLabel}>STREAK</Text>
+            <Text style={s.sheetLabel}>CURRENT</Text>
             <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
               <Text style={[s.streakNum, { color: C.secondary }]}>{stats.currentStreak}</Text>
               <Text style={{ fontSize: 18 }}>🔥</Text>
@@ -145,17 +189,10 @@ export function TrainingScreen({ phase, stats, zones, elapsed, error, canStart, 
 
           <View style={s.sheetDivider} />
 
-          {/* Form score */}
-          <View style={s.formGroup}>
-            <Text style={s.sheetLabel}>FORM SCORE</Text>
-            <View style={s.formBar}>
-              <View style={[s.formFill, { width: `${Math.min(100, stats.avgFormScore)}%` as any }]} />
-            </View>
-            <Text style={s.formLabel}>
-              {stats.avgFormScore > 0
-                ? `${formLabel(stats.avgFormScore)} • ${Math.round(stats.avgFormScore)}`
-                : "--"}
-            </Text>
+          <View style={s.summaryGroup}>
+            <Text style={s.sheetLabel}>MAKES</Text>
+            <Text style={s.summaryValue}>{stats.makes}</Text>
+            <Text style={s.summaryCaption}>{stats.misses} missed</Text>
           </View>
         </View>
 
@@ -230,9 +267,75 @@ const s = StyleSheet.create({
     fontSize: 14,
     textAlign: "center",
     lineHeight: 22,
-    marginBottom: 48,
+    marginBottom: 28,
   },
   errorText: { color: "#ffb4ab", fontSize: 13, textAlign: "center", marginBottom: 16 },
+  runtimeCard: {
+    width: "100%",
+    backgroundColor: C.glass,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: C.border,
+    padding: 18,
+    marginBottom: 20,
+  },
+  runtimeHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 12,
+    marginBottom: 10,
+  },
+  runtimePill: {
+    color: C.secondary,
+    fontSize: 10,
+    fontWeight: "900",
+    letterSpacing: 2.4,
+  },
+  runtimeCaption: {
+    color: C.outline,
+    fontSize: 10,
+    fontWeight: "700",
+    letterSpacing: 1.6,
+    textTransform: "uppercase",
+  },
+  runtimeBody: {
+    color: C.onSurfaceVariant,
+    fontSize: 12,
+    lineHeight: 18,
+    marginBottom: 16,
+  },
+  readinessGrid: { gap: 10 },
+  readinessCard: {
+    backgroundColor: "rgba(255,255,255,0.03)",
+    borderRadius: 12,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.05)",
+  },
+  readinessHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    marginBottom: 6,
+  },
+  readinessDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
+  readinessLabel: {
+    color: C.onSurface,
+    fontSize: 11,
+    fontWeight: "800",
+    letterSpacing: 1.1,
+    textTransform: "uppercase",
+  },
+  readinessDetail: {
+    color: C.onSurfaceVariant,
+    fontSize: 12,
+    lineHeight: 17,
+  },
 
   startBtn: {
     backgroundColor: C.secondary,
@@ -275,6 +378,23 @@ const s = StyleSheet.create({
   aiPulse: { flexDirection: "row", alignItems: "center", gap: 7, marginTop: 12 },
   aiPulseDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: C.primary },
   aiPulseText: { color: C.primary, fontSize: 9, fontWeight: "700", letterSpacing: 2.5 },
+  liveModeBadge: {
+    position: "absolute",
+    top: 12,
+    right: 12,
+    backgroundColor: "rgba(15,19,31,0.92)",
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.08)",
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+  },
+  liveModeText: {
+    color: C.primary,
+    fontSize: 9,
+    fontWeight: "800",
+    letterSpacing: 1.8,
+  },
 
   miniGrid: { flexDirection: "row", gap: 12 },
   miniCard: {
@@ -293,6 +413,19 @@ const s = StyleSheet.create({
     marginBottom: 6,
   },
   miniValue: { color: C.onSurface, fontSize: 28, fontWeight: "900" },
+  liveErrorCard: {
+    backgroundColor: "rgba(147,0,10,0.16)",
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "rgba(255,180,171,0.24)",
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+  },
+  liveErrorText: {
+    color: C.onErrorContainer,
+    fontSize: 12,
+    lineHeight: 18,
+  },
 
   bottomSheet: {
     backgroundColor: C.surfaceLow,
@@ -348,17 +481,9 @@ const s = StyleSheet.create({
   streakGroup: { alignItems: "center" },
   streakNum: { fontSize: 28, fontWeight: "900" },
 
-  formGroup: { flex: 1, alignItems: "flex-end" },
-  formBar: {
-    width: "100%",
-    height: 6,
-    backgroundColor: C.surfaceHighest,
-    borderRadius: 3,
-    overflow: "hidden",
-    marginVertical: 6,
-  },
-  formFill: { height: "100%", backgroundColor: C.secondary, borderRadius: 3 },
-  formLabel: { color: C.secondary, fontSize: 9, fontWeight: "700", letterSpacing: 1 },
+  summaryGroup: { flex: 1, alignItems: "flex-end" },
+  summaryValue: { color: C.primary, fontSize: 28, fontWeight: "900" },
+  summaryCaption: { color: C.outline, fontSize: 10, fontWeight: "700", letterSpacing: 1 },
 
   stopBtn: {
     marginHorizontal: 20,

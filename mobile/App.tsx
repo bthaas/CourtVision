@@ -1,15 +1,15 @@
 import { useEffect, useState } from "react";
 import { SafeAreaView, StatusBar } from "react-native";
 import { SessionSummaryScreen } from "./src/screens/SessionSummaryScreen";
-import { ShotFormScoreModal } from "./src/screens/ShotFormScoreModal";
+import { ShotRecapModal } from "./src/screens/ShotRecapModal";
 import { TrainingScreen } from "./src/screens/TrainingScreen";
 import { useCourtVisionSession } from "./src/state/useCourtVisionSession";
 import type { ShotInference } from "./src/types/analytics";
 
 export default function App() {
-  const session = useCourtVisionSession("athlete-demo");
+  const session = useCourtVisionSession();
   const [elapsed, setElapsed] = useState("00:00");
-  const [modalShot, setModalShot] = useState<ShotInference | null>(null);
+  const [recapShot, setRecapShot] = useState<ShotInference | null>(null);
 
   // Session timer
   useEffect(() => {
@@ -28,11 +28,11 @@ export default function App() {
     return () => clearInterval(id);
   }, [session.sessionStartTime]);
 
-  // Show form score modal for each new shot, auto-dismiss after 3s
+  // Show a quick shot recap for each new shot, auto-dismiss after 3s.
   useEffect(() => {
     if (!session.lastShot || session.phase !== "running") return;
-    setModalShot(session.lastShot);
-    const t = setTimeout(() => setModalShot(null), 3000);
+    setRecapShot(session.lastShot);
+    const t = setTimeout(() => setRecapShot(null), 3000);
     return () => clearTimeout(t);
   }, [session.lastShot]);
 
@@ -42,7 +42,10 @@ export default function App() {
         <StatusBar barStyle="light-content" />
         <SessionSummaryScreen
           stats={session.stats}
+          shots={session.shots}
           zones={session.zones}
+          sessionId={session.sessionId}
+          viewerShareUrl={session.viewerShareUrl}
           onNewSession={session.runStart}
         />
       </SafeAreaView>
@@ -59,13 +62,17 @@ export default function App() {
         elapsed={elapsed}
         error={session.error}
         canStart={session.canStart}
+        bootstrapping={session.bootstrapping}
+        readinessChecks={session.readinessChecks}
+        runtimeModeLabel={session.runtimeModeLabel}
+        runtimeModeDetail={session.runtimeModeDetail}
         onStart={session.runStart}
         onStop={session.runStop}
       />
-      <ShotFormScoreModal
-        shot={modalShot}
-        visible={!!modalShot}
-        onDismiss={() => setModalShot(null)}
+      <ShotRecapModal
+        shot={recapShot}
+        visible={!!recapShot}
+        onDismiss={() => setRecapShot(null)}
       />
     </SafeAreaView>
   );

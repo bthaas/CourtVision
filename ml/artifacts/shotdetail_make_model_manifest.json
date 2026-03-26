@@ -1,0 +1,67 @@
+{
+  "model_version": "nba-shotdetail-make-model/v3",
+  "artifact_path": "ml/artifacts/shotdetail_make_model_weights.npz",
+  "artifact_format": "numpy_npz",
+  "dataset_path": "ml/datasets/nba_dataset/shotdetail.parquet",
+  "preprocessing_path": "ml/artifacts/shotdetail_make_model_preprocessing.json",
+  "dataset_rows_used": 50000,
+  "license": "Apache-2.0",
+  "numeric_columns": [
+    "PERIOD",
+    "MINUTES_REMAINING",
+    "SECONDS_REMAINING",
+    "SHOT_DISTANCE",
+    "LOC_X",
+    "LOC_Y",
+    "YEAR"
+  ],
+  "categorical_columns": [
+    "ACTION_TYPE",
+    "SHOT_TYPE",
+    "SHOT_ZONE_BASIC",
+    "SHOT_ZONE_AREA",
+    "SHOT_ZONE_RANGE"
+  ],
+  "target_column": "SHOT_MADE_FLAG",
+  "feature_count": 91,
+  "vocab_sizes": {
+    "ACTION_TYPE": 64,
+    "SHOT_TYPE": 2,
+    "SHOT_ZONE_BASIC": 7,
+    "SHOT_ZONE_AREA": 6,
+    "SHOT_ZONE_RANGE": 5
+  },
+  "metrics": {
+    "loss": 0.6546968221664429,
+    "accuracy": 0.6191,
+    "auc": 0.6424348959402886
+  },
+  "history_tail": [
+    {
+      "epoch": 14.0,
+      "train_loss": 0.6553113460540771,
+      "train_accuracy": 0.614475,
+      "val_loss": 0.6555484533309937,
+      "val_accuracy": 0.6185,
+      "val_auc": 0.6415524777690214
+    },
+    {
+      "epoch": 15.0,
+      "train_loss": 0.6548863053321838,
+      "train_accuracy": 0.614875,
+      "val_loss": 0.6551076173782349,
+      "val_accuracy": 0.6187,
+      "val_auc": 0.6420942499111341
+    },
+    {
+      "epoch": 16.0,
+      "train_loss": 0.654493510723114,
+      "train_accuracy": 0.615125,
+      "val_loss": 0.6546968221664429,
+      "val_accuracy": 0.6191,
+      "val_auc": 0.6424348959402886
+    }
+  ],
+  "sha256": "2b5c0af34f5d5d9033f4cf34d8d95407136e547a01acb2c74a4f530eedb08d13",
+  "note": "This is a fast first-pass shot outcome model trained on public shot-detail labels. It is real-data-backed, but still tabular rather than frame-based vision inference and still needs a native/mobile runtime bridge."
+}

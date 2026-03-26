@@ -1,12 +1,10 @@
-import { ShotResult } from "./analytics";
+import { CaptureQuality, ShotResult } from "./analytics";
 
 export type TFLiteInferenceOutput = {
   result: ShotResult;
   confidence: number;
-  releaseAngleDeg: number;
-  elbowAngleDeg: number;
-  kneeAngleDeg: number;
-  torsoTiltDeg: number;
+  modelVersion?: string;
+  captureQuality?: CaptureQuality;
   xNorm: number;
   yNorm: number;
   inferenceLatencyMs: number;
